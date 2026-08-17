@@ -4,6 +4,7 @@
 # 2. 重命名 .下载 后缀的文件
 # 3. 修改 HTML 内部路径引用
 # 4. 注入原生桥接脚本
+# 5. 移除外部字体引用（离线可用）
 
 set -e
 WWW_DIR="www"
@@ -63,17 +64,23 @@ sed -i "s|${OLD_DIR_NAME}|assets|g" "$HTML_FILE.bak"
 # 去掉 .下载 后缀
 sed -i 's/\.下载//g' "$HTML_FILE.bak"
 
-# 5. 注入桥接脚本（在 </head> 前插入）
-# 检查是否已注入
+# 5. 移除 @font-face 中引用外部字体的块（离线时不需要）
+echo "移除外部字体引用..."
+perl -i -0pe 's/\@font-face\s*\{[^}]*fonts\.gstatic\.com[^}]*\}//gs' "$HTML_FILE.bak"
+perl -i -0pe 's/\@font-face\s*\{[^}]*fonts\.googleapis\.com[^}]*\}//gs' "$HTML_FILE.bak"
+# 移除 style 标签中仅剩的 @font-face 空块
+perl -i -0pe 's/<style[^>]*>\s*<\/style>//gs' "$HTML_FILE.bak"
+
+# 6. 注入桥接脚本（在 </head> 前插入）
 if ! grep -q "native-bridge.js" "$HTML_FILE.bak"; then
-    sed -i 's|</head>|<script src="./native-bridge.js"></script>\n</head>|' "$HTML_FILE.bak"
+    sed -i 's|</head>|    <script src="./native-bridge.js"></script>\n</head>|' "$HTML_FILE.bak"
     echo "已注入原生桥接脚本"
 fi
 
-# 6. 保存为 index.html
+# 7. 保存为 index.html
 mv "$HTML_FILE.bak" "$WWW_DIR/index.html"
 
-# 7. 删除原始 HTML
+# 8. 删除原始 HTML
 rm -f "$HTML_FILE"
 
 echo ""
